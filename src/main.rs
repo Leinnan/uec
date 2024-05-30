@@ -27,7 +27,7 @@ enum Commands {
     /// Generate a Unreal project.
     GenerateProjectFiles { path: Option<PathBuf> },
     /// Sets the default Unreal Engine Path.
-    SetRoot { name: PathBuf },
+    SetEditor { name: PathBuf },
 }
 
 fn main() {
@@ -41,7 +41,7 @@ fn main() {
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Commands::SetRoot { name } => {
+        Commands::SetEditor { name } => {
             if editor::get_editor_exec(name.to_str().unwrap()).is_none() {
                 panic!("EDITOR AT PATH DOES NOT EXISTS! {}", name.display());
             }
