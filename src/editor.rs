@@ -1,5 +1,5 @@
 use std::{
-    io::{self, BufRead, BufReader, Write},
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -41,7 +41,8 @@ pub fn build_project(config: &Config, path: &Option<PathBuf>) {
 
     println!("Building project: {}", &project_path.display());
 
-    let output = Command::new("cmd")
+    let mut bind = Command::new("cmd");
+    let cmd = bind
         .args(["/C", (build_path.to_str().unwrap())])
         .arg("BuildCookRun")
         .arg(&p)
@@ -54,14 +55,53 @@ pub fn build_project(config: &Config, path: &Option<PathBuf>) {
         .arg("-stage")
         .arg("-archive")
         .arg("-pak")
-        .arg(&arch)
-        .output()
+        .arg(&arch);
+
+    println!("Command to be run: {:?}", cmd);
+
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .expect("Failed to execute command");
 
-    // Print the output of the script
-    println!("Status: {}", output.status);
-    io::stdout().write_all(&output.stdout).unwrap();
-    io::stderr().write_all(&output.stderr).unwrap();
+    // Get the stdout and stderr of the child process
+    let stdout = child.stdout.take().expect("Failed to capture stdout");
+    let stderr = child.stderr.take().expect("Failed to capture stderr");
+
+    // Create readers for the stdout and stderr
+    let stdout_reader = BufReader::new(stdout);
+    let stderr_reader = BufReader::new(stderr);
+
+    // Spawn a thread to handle stdout
+    let stdout_handle = std::thread::spawn(move || {
+        for line in stdout_reader.lines() {
+            match line {
+                Ok(line) => println!("{}", line),
+                Err(err) => eprintln!("Error reading stdout: {}", err),
+            }
+        }
+    });
+
+    // Spawn a thread to handle stderr
+    let stderr_handle = std::thread::spawn(move || {
+        for line in stderr_reader.lines() {
+            match line {
+                Ok(line) => eprintln!("{}", line),
+                Err(err) => eprintln!("Error reading stderr: {}", err),
+            }
+        }
+    });
+
+    // Wait for the child process to exit
+    let status = child.wait().expect("Child process wasn't running");
+
+    // Wait for the threads to finish
+    stdout_handle.join().expect("Failed to join stdout thread");
+    stderr_handle.join().expect("Failed to join stderr thread");
+
+    // Print the exit status
+    println!("Command exited with status: {}", status);
 }
 
 pub fn generate_proj_files(config: &Config, path: &Option<PathBuf>) {
@@ -75,15 +115,24 @@ pub fn generate_proj_files(config: &Config, path: &Option<PathBuf>) {
         project_path.to_str().expect("Failed to get project path.")
     )
     .replace("\\\\?\\", "");
-    let build_path = Path::new(&config.editor_path).join(consts::BUILD_SCRIPT);
+    let build_path = Path::new(&config.editor_path)
+        .join(consts::BUILD_SCRIPT)
+        .to_str()
+        .unwrap()
+        .to_owned();
 
-    let mut child = Command::new("cmd")
-        .args(["/C", (build_path.to_str().unwrap())])
+    let mut bind = Command::new("cmd");
+    let cmd = bind
+        .args(["/C", &build_path])
         .arg("-projectfiles")
         .arg(&p)
         .arg("-game")
         .arg("-rocket")
-        .arg("-progress")
+        .arg("-progress");
+
+    println!("Command to be run: {:?}", cmd);
+
+    let mut child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
