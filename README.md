@@ -6,6 +6,29 @@ Simple CLI tool which simplifies Unreal Engine usage from CLI. it will be single
 
 It is greatly inspired by [ue4cli](https://github.com/adamrehn/ue4cli), but I have no plans for supporting Unreal Engine older that 5. In the long run, I am planing to provide similar amount of features and some additionals like command aliases specified per project and per installation.
 
+## Usage
+
+```sh
+Usage: uec [OPTIONS] <COMMAND>
+
+Commands:
+  editor                  Runs the unreal editor without an Unreal project
+  build                   Builds a Unreal project
+  generate-project-files  Generate a Unreal project
+  set-root                Sets the default Unreal Engine Path
+  help                    Print this message or the help of the given subcommand(s)
+
+Options:
+  -e, --engine-path <ENGINE_PATH>
+          Used Unreal Engine Path
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+```
+
 ## Install
 
 It can be installed using Rust Cargo:

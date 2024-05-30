@@ -22,9 +22,9 @@ struct Cli {
 enum Commands {
     /// Runs the unreal editor without an Unreal project.
     Editor,
-    /// Runs the editor with an Unreal project.
+    /// Builds a Unreal project.
     Build { path: Option<PathBuf> },
-    /// Generate the Unreal project.
+    /// Generate a Unreal project.
     GenerateProjectFiles { path: Option<PathBuf> },
     /// Sets the default Unreal Engine Path.
     SetRoot { name: PathBuf },
@@ -33,6 +33,9 @@ enum Commands {
 fn main() {
     let cli = Cli::parse(); //.unwrap_or(Cli::parse_from(&all_args[0..2]));
     let mut config = Config::load_or_create();
+    if let Some(engine) = cli.engine_path {
+        config.editor_path = engine.to_str().unwrap().into();
+    }
     println!("{:?}", &config);
 
     // You can check for the existence of subcommands, and if found use their
