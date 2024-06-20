@@ -20,11 +20,12 @@ Commands:
   generate-project-files  Generate a Unreal project
   editor-project          Builds and run a Unreal editor project
   set-editor              Sets the default Unreal Engine Path
+  print-config            Prints the current command configuration
   help                    Print this message or the help of the given subcommand(s)
 
 Options:
   -e, --engine-path <ENGINE_PATH>
-          Used Unreal Engine Path
+          Override the Unreal Engine Path from config
 
   -h, --help
           Print help (see a summary with '-h')

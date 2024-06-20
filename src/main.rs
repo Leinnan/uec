@@ -15,13 +15,13 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
     #[arg(short, long)]
-    /// Used Unreal Engine Path
+    /// Override the Unreal Engine Path from config
     engine_path: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Runs the unreal editor without an Unreal project.
+    /// Runs the Unreal editor without an Unreal project.
     Editor,
     /// Builds a Unreal project.
     Build { path: Option<PathBuf> },
@@ -31,6 +31,8 @@ enum Commands {
     EditorProject { path: Option<PathBuf> },
     /// Sets the default Unreal Engine Path.
     SetEditor { name: PathBuf },
+    /// Prints the current command configuration.
+    PrintConfig,
 }
 
 fn main() {
@@ -38,8 +40,7 @@ fn main() {
     let mut config = Config::load_or_create();
     if let Some(engine) = cli.engine_path {
         config.editor_path = engine.to_str().unwrap().into();
-    }
-    println!("{:?}", &config);
+    };
 
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
@@ -56,5 +57,6 @@ fn main() {
         Commands::Build { path } => editor::build_project(&config, path),
         Commands::EditorProject { path } => editor::build_editor_project(&config, path),
         Commands::GenerateProjectFiles { path } => editor::generate_proj_files(&config, path),
+        Commands::PrintConfig => println!("{:#?}", &config),
     }
 }
