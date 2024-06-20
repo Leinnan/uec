@@ -6,6 +6,7 @@ use config::Config;
 pub mod config;
 pub mod consts;
 pub mod editor;
+pub mod uproject;
 
 #[derive(Parser)]
 #[command(version, about, long_about = "Unreal Engine helper tool")]
@@ -26,6 +27,8 @@ enum Commands {
     Build { path: Option<PathBuf> },
     /// Generate a Unreal project.
     GenerateProjectFiles { path: Option<PathBuf> },
+    /// Builds and run a Unreal editor project.
+    EditorProject { path: Option<PathBuf> },
     /// Sets the default Unreal Engine Path.
     SetEditor { name: PathBuf },
 }
@@ -51,6 +54,7 @@ fn main() {
         }
         Commands::Editor => editor::run_editor(&config),
         Commands::Build { path } => editor::build_project(&config, path),
+        Commands::EditorProject { path } => editor::build_editor_project(&config, path),
         Commands::GenerateProjectFiles { path } => editor::generate_proj_files(&config, path),
     }
 }

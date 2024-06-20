@@ -18,6 +18,7 @@ Commands:
   editor                  Runs the unreal editor without an Unreal project
   build                   Builds a Unreal project
   generate-project-files  Generate a Unreal project
+  editor-project          Builds and run a Unreal editor project
   set-editor              Sets the default Unreal Engine Path
   help                    Print this message or the help of the given subcommand(s)
 
@@ -36,6 +37,6 @@ Options:
 
 It can be installed using Rust Cargo:
 
-```sh 
+```sh
 cargo install --locked --git https://github.com/Leinnan/uec
 ```
