@@ -2,6 +2,8 @@
 
 [![build](https://github.com/Leinnan/uec/actions/workflows/rust.yml/badge.svg)](https://github.com/Leinnan/uec/actions/workflows/rust.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![crates.io](https://img.shields.io/crates/v/uec.svg)](https://crates.io/crates/uec)
+[![crates.io](https://img.shields.io/crates/d/uec.svg)](https://crates.io/crates/uec)
 
 Simple CLI tool which simplifies Unreal Engine usage from CLI. it will be single executable tool that makes easy to use it without external dependencies like Python.
 
@@ -39,5 +41,5 @@ Options:
 It can be installed using Rust Cargo:
 
 ```sh
-cargo install --locked --git https://github.com/Leinnan/uec
+cargo install uec
 ```
