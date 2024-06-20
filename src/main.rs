@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use config::Config;
+use editor::Editor;
 
 pub mod config;
 pub mod consts;
@@ -9,13 +9,13 @@ pub mod editor;
 pub mod uproject;
 
 #[derive(Parser)]
-#[command(version, about, long_about = "Unreal Engine helper tool")]
+#[command(version, about, long_about = "Unreal Engine CLI helper tool")]
 #[command(propagate_version = true)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
     #[arg(short, long)]
-    /// Override the Unreal Engine Path from config
+    /// Override the Unreal Engine Path from config.
     engine_path: Option<PathBuf>,
 }
 
@@ -36,27 +36,24 @@ enum Commands {
 }
 
 fn main() {
-    let cli = Cli::parse(); //.unwrap_or(Cli::parse_from(&all_args[0..2]));
-    let mut config = Config::load_or_create();
-    if let Some(engine) = cli.engine_path {
-        config.editor_path = engine.to_str().unwrap().into();
-    };
+    let cli = Cli::parse();
+    let mut editor = Editor::create(cli.engine_path);
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
     match &cli.command {
         Commands::SetEditor { name } => {
-            if editor::get_editor_exec(name.to_str().unwrap()).is_none() {
+            if Editor::build_editor_exec(name.to_str().unwrap()).is_none() {
                 panic!("EDITOR AT PATH DOES NOT EXISTS! {}", name.display());
             }
-            name.to_str().unwrap().clone_into(&mut config.editor_path);
-            config.save();
+            name.to_str()
+                .unwrap()
+                .clone_into(&mut editor.config.editor_path);
+            editor.config.save();
             println!("Updated the editor path to new one: {name:?}");
         }
-        Commands::Editor => editor::run_editor(&config),
-        Commands::Build { path } => editor::build_project(&config, path),
-        Commands::EditorProject { path } => editor::build_editor_project(&config, path),
-        Commands::GenerateProjectFiles { path } => editor::generate_proj_files(&config, path),
-        Commands::PrintConfig => println!("{:#?}", &config),
+        Commands::Editor => editor.run_editor(),
+        Commands::Build { path } => editor.build_project(path),
+        Commands::EditorProject { path } => editor.build_editor_project(path),
+        Commands::GenerateProjectFiles { path } => editor.generate_proj_files(path),
+        Commands::PrintConfig => println!("{:#?}", &editor.config),
     }
 }
