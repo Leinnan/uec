@@ -43,3 +43,5 @@ It can be installed using Rust Cargo:
 ```sh
 cargo install uec
 ```
+
+It is also possible to go to [Releases](https://github.com/Leinnan/uec/releases) and download desired version.
