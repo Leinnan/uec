@@ -33,6 +33,11 @@ enum Commands {
     SetEditor { name: PathBuf },
     /// Prints the current command configuration.
     PrintConfig,
+    /// Builds a Unreal plugin.
+    BuildPlugin {
+        path: Option<PathBuf>,
+        output_dir: Option<PathBuf>,
+    },
 }
 
 fn main() {
@@ -54,6 +59,7 @@ fn main() {
         Commands::Build { path } => editor.build_project(path),
         Commands::EditorProject { path } => editor.build_editor_project(path),
         Commands::GenerateProjectFiles { path } => editor.generate_proj_files(path),
+        Commands::BuildPlugin { path, output_dir } => editor.build_plugin(path, output_dir),
         Commands::PrintConfig => println!("{:#?}", &editor.config),
     }
 }

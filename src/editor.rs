@@ -120,6 +120,30 @@ impl Editor {
         cmd.run_with_async_logs();
     }
 
+    pub fn build_plugin(&self, uplugin_path: &Option<PathBuf>, output_dir: &Option<PathBuf>) {
+        let Some(project_path) = find_file_by_extension(uplugin_path, "uplugin") else {
+            panic!("Plugin at given path does not exist!");
+        };
+        let output = output_dir
+            .clone()
+            .unwrap_or_else(|| std::fs::canonicalize(std::env::current_dir().unwrap()).unwrap());
+
+        let p = format!(
+            "-plugin={}",
+            project_path.to_str().expect("Failed to get project path.")
+        )
+        .replace("\\\\?\\", "");
+        let tmp = format!("-package={}", output.to_str().unwrap()).replace("\\\\?\\", "");
+        let build_path = Path::new(&self.config.editor_path).join(consts::UAT_SCRIPT);
+        let mut bind = Command::new("cmd");
+        let cmd = bind
+            .args(["/C", (build_path.to_str().unwrap())])
+            .arg("BuildPlugin")
+            .arg(&p)
+            .arg(&tmp);
+        cmd.run_with_async_logs();
+    }
+
     pub fn generate_proj_files(&self, path: &Option<PathBuf>) {
         let project_path = find_uproject_file(path);
         let Some(project_path) = project_path else {
@@ -151,6 +175,10 @@ impl Editor {
 }
 
 fn find_uproject_file(dir: &Option<PathBuf>) -> Option<PathBuf> {
+    find_file_by_extension(dir, "uproject")
+}
+
+fn find_file_by_extension(dir: &Option<PathBuf>, extension: &str) -> Option<PathBuf> {
     let path = dir
         .clone()
         .unwrap_or(std::env::current_dir().expect("Failed to get current directory."));
@@ -164,15 +192,14 @@ fn find_uproject_file(dir: &Option<PathBuf>) -> Option<PathBuf> {
 
         // Check if the entry is a file with .uproject extension
         if path.is_file() {
-            if let Some(extension) = path.extension() {
-                if extension == "uproject" {
+            if let Some(ext) = path.extension() {
+                if ext == extension {
                     let path = std::fs::canonicalize(path).unwrap();
                     return Some(path);
                 }
             }
         }
     }
-
     None
 }
 
