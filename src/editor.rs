@@ -1,11 +1,10 @@
+use colour::{e_red_ln, yellow_ln_bold};
 use std::{
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
     sync::{Arc, Mutex},
 };
-
-use colored::Colorize;
 
 use crate::{config::Config, consts, uproject};
 
@@ -239,7 +238,13 @@ impl CmdHelper for Command {
             for line in stdout_reader.lines() {
                 match line {
                     Ok(line) => {
-                        println!("{}", line);
+                        if line.contains("): warning C") {
+                            yellow_ln_bold!("{}", line);
+                        } else if line.contains("): error C") {
+                            e_red_ln!("{}", line);
+                        }else {
+                            println!("{}", line);
+                        }
                         let mut log = stdout_log.lock().unwrap();
                         log.push_str(&line);
                         log.push('\n');
@@ -256,7 +261,7 @@ impl CmdHelper for Command {
             for line in stderr_reader.lines() {
                 match line {
                     Ok(line) => {
-                        eprintln!("{}", line.bold().red());
+                        e_red_ln!("{}", line);
                         let mut log = stderr_log.lock().unwrap();
                         log.push_str(&line);
                         log.push('\n');
@@ -278,7 +283,10 @@ impl CmdHelper for Command {
                 .append(true)
                 .open(path)
                 .expect("Failed to open file");
-            let log_output = Arc::try_unwrap(shared_log).expect("Failed to unwrap Arc").into_inner().unwrap();
+            let log_output = Arc::try_unwrap(shared_log)
+                .expect("Failed to unwrap Arc")
+                .into_inner()
+                .unwrap();
             writeln!(file, "{}", log_output).expect("Failed to write to file");
         }
 
