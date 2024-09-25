@@ -5,6 +5,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use colored::Colorize;
+
 use crate::{config::Config, consts, uproject};
 
 pub struct Editor {
@@ -254,7 +256,7 @@ impl CmdHelper for Command {
             for line in stderr_reader.lines() {
                 match line {
                     Ok(line) => {
-                        eprintln!("{}", line);
+                        eprintln!("{}", line.bold().red());
                         let mut log = stderr_log.lock().unwrap();
                         log.push_str(&line);
                         log.push('\n');
