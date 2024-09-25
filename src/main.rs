@@ -17,6 +17,9 @@ struct Cli {
     #[arg(short, long)]
     /// Override the Unreal Engine Path from config.
     engine_path: Option<PathBuf>,
+    #[arg(long)]
+    /// Save logs from command into specified file.
+    save_logs: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -42,7 +45,7 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
-    let mut editor = Editor::create(cli.engine_path);
+    let mut editor = Editor::create(cli.engine_path, cli.save_logs);
 
     match &cli.command {
         Commands::SetEditor { name } => {
