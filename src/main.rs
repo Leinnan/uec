@@ -11,7 +11,7 @@ pub mod uproject;
 #[derive(Parser)]
 #[command(version, about, long_about = "Unreal Engine CLI helper tool")]
 #[command(propagate_version = true)]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
     command: Commands,
     #[arg(short, long)]
@@ -20,10 +20,13 @@ struct Cli {
     #[arg(long)]
     /// Save logs from command into specified file.
     save_logs: Option<PathBuf>,
+    /// Log only errors
+    #[clap(long, action)]
+    error_only: bool,
 }
 
 #[derive(Subcommand)]
-enum Commands {
+pub enum Commands {
     /// Runs the Unreal editor without an Unreal project.
     Editor,
     /// Builds a Unreal project.
@@ -45,7 +48,7 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
-    let mut editor = Editor::create(cli.engine_path, cli.save_logs);
+    let mut editor = Editor::create(&cli);
 
     match &cli.command {
         Commands::SetEditor { name } => {

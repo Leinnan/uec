@@ -6,21 +6,26 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{config::Config, consts, uproject};
+use crate::{config::Config, consts, uproject, Cli};
 
 pub struct Editor {
     pub config: Config,
     pub logs: Option<PathBuf>,
+    pub error_only: bool,
 }
 
 impl Editor {
-    pub fn create(engine_path_override: Option<PathBuf>, logs: Option<PathBuf>) -> Self {
+    pub fn create(cli: &Cli) -> Self {
         let mut config = Config::load_or_create();
-        if let Some(engine) = engine_path_override {
+        if let Some(engine) = &cli.engine_path {
             config.editor_path = engine.to_str().unwrap().into();
         };
 
-        Editor { config, logs }
+        Editor {
+            config,
+            logs: cli.save_logs.clone(),
+            error_only: cli.error_only,
+        }
     }
 
     pub fn build_editor_exec(base_dir: &str) -> Option<PathBuf> {
@@ -71,7 +76,10 @@ impl Editor {
             .arg("-WaitMutex")
             .arg("-FromMsBuild");
 
-        if cmd.run_with_async_logs(&self.logs).success() {
+        if cmd
+            .run_with_async_logs(&self.logs, self.error_only)
+            .success()
+        {
             let path = self
                 .get_editor_exec()
                 .expect("Editor at path does not exists");
@@ -120,7 +128,7 @@ impl Editor {
             .arg("-pak")
             .arg(&arch);
 
-        cmd.run_with_async_logs(&self.logs);
+        cmd.run_with_async_logs(&self.logs, self.error_only);
     }
 
     pub fn build_plugin(&self, uplugin_path: &Option<PathBuf>, output_dir: &Option<PathBuf>) {
@@ -145,7 +153,7 @@ impl Editor {
             .arg(&p)
             .arg(&tmp)
             .arg("-CreateSubfolder");
-        cmd.run_with_async_logs(&self.logs);
+        cmd.run_with_async_logs(&self.logs, self.error_only);
     }
 
     pub fn generate_proj_files(&self, path: &Option<PathBuf>) {
@@ -174,7 +182,7 @@ impl Editor {
             .arg("-rocket")
             .arg("-progress");
 
-        cmd.run_with_async_logs(&self.logs);
+        cmd.run_with_async_logs(&self.logs, self.error_only);
     }
 }
 
@@ -208,11 +216,11 @@ fn find_file_by_extension(dir: &Option<PathBuf>, extension: &str) -> Option<Path
 }
 
 trait CmdHelper {
-    fn run_with_async_logs(&mut self, logs_path: &Option<PathBuf>) -> ExitStatus;
+    fn run_with_async_logs(&mut self, logs_path: &Option<PathBuf>, error_only: bool) -> ExitStatus;
     fn run_in_bg(&mut self);
 }
 impl CmdHelper for Command {
-    fn run_with_async_logs(&mut self, logs_path: &Option<PathBuf>) -> ExitStatus {
+    fn run_with_async_logs(&mut self, logs_path: &Option<PathBuf>, error_only: bool) -> ExitStatus {
         println!("Command to be run: {:?}", self);
 
         let mut child = self
@@ -238,11 +246,21 @@ impl CmdHelper for Command {
             for line in stdout_reader.lines() {
                 match line {
                     Ok(line) => {
+                        if error_only {
+                            if !line.contains("): error C") {
+                                continue;
+                            }
+                            println!("{}", line);
+                            let mut log = stdout_log.lock().unwrap();
+                            log.push_str(&line);
+                            log.push('\n');
+                            continue;
+                        }
                         if line.contains("): warning C") {
                             yellow_ln_bold!("{}", line);
                         } else if line.contains("): error C") {
                             e_red_ln!("{}", line);
-                        }else {
+                        } else {
                             println!("{}", line);
                         }
                         let mut log = stdout_log.lock().unwrap();
