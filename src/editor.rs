@@ -1,4 +1,4 @@
-use colour::{e_red_ln, print_ln_bold, yellow_ln_bold};
+use colour::{dark_green_ln_bold, e_red_ln, print_ln_bold, yellow_ln_bold};
 use std::{
     error::Error,
     io::{BufRead, BufReader, Write},
@@ -73,6 +73,44 @@ impl Editor {
         }
 
         Ok(())
+    }
+
+    pub fn build_engine_from_source(&self, dir: &Option<PathBuf>) {
+        // TODO: Unix support.
+        let dir = dir
+            .clone()
+            .unwrap_or(std::env::current_dir().expect("Failed to get current directory."));
+        if !dir.join("Setup.bat").exists() || !dir.join("GenerateProjectFiles.bat").exists() {
+            panic!(
+                "WRONG DIRECTORY, it should be run from Unreal Engine Source code root directory"
+            );
+        }
+        let cmd = Command::new("cmd")
+            .arg("/C")
+            .arg(dir.join("Setup.bat"))
+            .run_with_async_logs(&self.logs, self.error_only);
+        if !cmd.success() {
+            panic!("FAILED TO RUN SETUP");
+        }
+
+        let cmd = Command::new("cmd")
+            .arg("/C")
+            .arg(dir.join("GenerateProjectFiles.bat"))
+            .run_with_async_logs(&self.logs, self.error_only);
+        if !cmd.success() {
+            panic!("FAILED TO GENERATE PROJECT FILES");
+        }
+        let cmd = Command::new("cmd")
+            .arg("/C")
+            .arg("msbuild")
+            .arg(dir.join("UE5.sln"))
+            .arg("/p:Configuration=\"Development Editor\"")
+            .arg("/p:Platform=\"Win64\"")
+            .run_with_async_logs(&self.logs, self.error_only);
+        if !cmd.success() {
+            panic!("FAILED TO BUILD ENGINE");
+        }
+        dark_green_ln_bold!("ENGINE BUILED SUCCESSFULLY!");
     }
 
     pub fn run_editor(&self) {

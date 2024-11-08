@@ -46,6 +46,8 @@ pub enum Commands {
         path: Option<PathBuf>,
         output_dir: Option<PathBuf>,
     },
+    /// Build Unreal Engine from source.
+    BuildEngine { path: Option<PathBuf> },
 }
 
 fn main() {
@@ -65,6 +67,7 @@ fn main() {
         }
         Commands::Editor => editor.run_editor(),
         Commands::Build { path } => editor.build_project(path),
+        Commands::BuildEngine { path } => editor.build_engine_from_source(path),
         Commands::CleanProject { path } => {
             let _ = editor
                 .clean_project(path)
