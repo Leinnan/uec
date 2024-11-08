@@ -1,5 +1,6 @@
-use colour::{e_red_ln, yellow_ln_bold};
+use colour::{e_red_ln, print_ln_bold, yellow_ln_bold};
 use std::{
+    error::Error,
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
@@ -39,6 +40,39 @@ impl Editor {
 
     pub fn get_editor_exec(&self) -> Option<PathBuf> {
         Self::build_editor_exec(&self.config.editor_path)
+    }
+
+    pub fn clean_project(&self, path: &Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+        let project_path = find_uproject_file(path);
+        let Some(project_path) = project_path else {
+            panic!("PROJECT AT PATH DOES NOT EXIST!");
+        };
+        let sln_file = project_path.with_extension("sln");
+        let parent = project_path.parent().expect("");
+        if sln_file.exists() {
+            if !self.error_only {
+                print_ln_bold!("Removing: {}", sln_file.display());
+            }
+            std::fs::remove_file(sln_file)?;
+        }
+        let dirs_to_remove = [
+            "Build",
+            "Intermediate",
+            "Saved",
+            "DerivedDataCache",
+            "PackagedProject",
+        ];
+        for dir in dirs_to_remove {
+            let path = parent.join(dir);
+            if path.exists() {
+                if !self.error_only {
+                    print_ln_bold!("Removing: {}", path.display());
+                }
+                std::fs::remove_dir_all(path)?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn run_editor(&self) {

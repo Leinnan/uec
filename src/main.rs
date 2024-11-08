@@ -35,6 +35,8 @@ pub enum Commands {
     GenerateProjectFiles { path: Option<PathBuf> },
     /// Builds and run a Unreal editor project.
     EditorProject { path: Option<PathBuf> },
+    /// Cleans all the intermediate files and directories from project.
+    CleanProject { path: Option<PathBuf> },
     /// Sets the default Unreal Engine Path.
     SetEditor { name: PathBuf },
     /// Prints the current command configuration.
@@ -63,6 +65,11 @@ fn main() {
         }
         Commands::Editor => editor.run_editor(),
         Commands::Build { path } => editor.build_project(path),
+        Commands::CleanProject { path } => {
+            let _ = editor
+                .clean_project(path)
+                .inspect_err(|e| eprintln!("Failed to clean up the project, reason: {:#?}", e));
+        }
         Commands::EditorProject { path } => editor.build_editor_project(path),
         Commands::GenerateProjectFiles { path } => editor.generate_proj_files(path),
         Commands::BuildPlugin { path, output_dir } => editor.build_plugin(path, output_dir),
