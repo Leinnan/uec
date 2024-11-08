@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use crate::{config::Config, consts, uproject, Cli};
@@ -76,6 +77,7 @@ impl Editor {
     }
 
     pub fn build_engine_from_source(&self, dir: &Option<PathBuf>) {
+        let start = Instant::now();
         // TODO: Unix support.
         let dir = dir
             .clone()
@@ -110,7 +112,8 @@ impl Editor {
         if !cmd.success() {
             panic!("FAILED TO BUILD ENGINE");
         }
-        dark_green_ln_bold!("ENGINE BUILED SUCCESSFULLY!");
+        let duration = start.elapsed();
+        dark_green_ln_bold!("ENGINE BUILED SUCCESSFULLY! Duration: {:?}", duration);
     }
 
     pub fn run_editor(&self) {
