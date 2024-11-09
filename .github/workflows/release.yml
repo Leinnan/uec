@@ -9,7 +9,7 @@ on:
         type: string
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
   contents: write
@@ -77,8 +77,17 @@ jobs:
             echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
           fi
 
+      - name: Extract changelog content
+        id: extract_changelog
+        run: |
+          version="${{ env.VERSION }}"
+          awk "/^## \\[$version\\]/ {flag=1; next} /^## \\[/ && flag {flag=0} flag" CHANGELOG.md > changelog_output.txt
+
+      - name: Display extracted content
+        run: cat changelog_output.txt
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: changelog_output.txt
           files: |
             ${{ env.ASSET }}

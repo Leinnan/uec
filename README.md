@@ -12,22 +12,31 @@ It is greatly inspired by [ue4cli](https://github.com/adamrehn/ue4cli), but I ha
 ## Usage
 
 ```sh
-Unreal Engine helper tool
+Unreal Engine CLI helper tool
 
 Usage: uec [OPTIONS] <COMMAND>
 
 Commands:
-  editor                  Runs the unreal editor without an Unreal project
+  editor                  Runs the Unreal editor without an Unreal project
   build                   Builds a Unreal project
   generate-project-files  Generate a Unreal project
   editor-project          Builds and run a Unreal editor project
+  clean-project           Cleans all the intermediate files and directories from project
   set-editor              Sets the default Unreal Engine Path
   print-config            Prints the current command configuration
+  build-plugin            Builds a Unreal plugin
+  build-engine            Build Unreal Engine from source
   help                    Print this message or the help of the given subcommand(s)
 
 Options:
   -e, --engine-path <ENGINE_PATH>
           Override the Unreal Engine Path from config
+
+      --save-logs <SAVE_LOGS>
+          Save logs from command into specified file
+
+      --error-only
+          Log only errors
 
   -h, --help
           Print help (see a summary with '-h')
