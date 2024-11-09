@@ -15,6 +15,34 @@ permissions:
   contents: write
 
 jobs:
+  deploy-to-crates-io:
+    name: Deploy to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo-release Cache
+        id: cargo_release_cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-release
+          key: ${{ runner.os }}-cargo-release
+      - run: cargo install cargo-release
+        if: steps.cargo_release_cache.outputs.cache-hit != 'true'
+      - name: cargo login
+        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      - name: "cargo release publish"
+        run: |-
+          cargo release \
+            publish \
+            --workspace \
+            --all-features \
+            --allow-branch HEAD \
+            --no-confirm \
+            --no-verify \
+            --execute
+
   build-and-upload:
     name: Build and upload
     runs-on: ${{ matrix.os }}
@@ -34,7 +62,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get the release version from the tag
         shell: bash
@@ -91,23 +119,3 @@ jobs:
           body_path: changelog_output.txt
           files: |
             ${{ env.ASSET }}
-      - name: cargo-release Cache
-        id: cargo_release_cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-release
-          key: ${{ runner.os }}-cargo-release
-      - run: cargo install cargo-release
-        if: steps.cargo_release_cache.outputs.cache-hit != 'true'
-      - name: cargo login
-        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
-      - name: "cargo release publish"
-        run: |-
-          cargo release \
-            publish \
-            --workspace \
-            --all-features \
-            --allow-branch HEAD \
-            --no-confirm \
-            --no-verify \
-            --execute
