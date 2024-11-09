@@ -2,6 +2,7 @@
 name = "uec"
 version = "0.2.0"
 edition = "2021"
+authors = ["Piotr Siuszko <siuszko@zoho.com>"]
 repository = "https://github.com/Leinnan/uec"
 homepage = "https://github.com/Leinnan/uec"
 readme = "README.md"
@@ -9,7 +10,7 @@ license = "MIT"
 keywords = ["cli", "unreal", "unreal-engine-5", "gamedev", "game-development"]
 categories = ["command-line-utilities", "development-tools"]
 description = "Unreal Engine CLI helper tool"
-exclude = ["/.github"]
+exclude = ["/.github", "/wix"]
 
 [profile.release]
 opt-level = 'z'

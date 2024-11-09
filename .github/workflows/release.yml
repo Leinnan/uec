@@ -15,38 +15,9 @@ permissions:
   contents: write
 
 jobs:
-  deploy-to-crates-io:
-    name: Deploy to crates.io
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: cargo-release Cache
-        id: cargo_release_cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-release
-          key: ${{ runner.os }}-cargo-release
-      - run: cargo install cargo-release
-        if: steps.cargo_release_cache.outputs.cache-hit != 'true'
-      - name: cargo login
-        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
-      - name: "cargo release publish"
-        run: |-
-          cargo release \
-            publish \
-            --workspace \
-            --all-features \
-            --allow-branch HEAD \
-            --no-confirm \
-            --no-verify \
-            --execute
-
   build-and-upload:
     name: Build and upload
     runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         include:
@@ -59,7 +30,6 @@ jobs:
           - build: macos
             os: macos-latest
             target: x86_64-apple-darwin
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -119,3 +89,67 @@ jobs:
           body_path: changelog_output.txt
           files: |
             ${{ env.ASSET }}
+  deploy-to-crates-io:
+    needs:
+      - build-and-upload
+    name: Deploy to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo-release Cache
+        id: cargo_release_cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-release
+          key: ${{ runner.os }}-cargo-release
+      - run: cargo install cargo-release
+        if: steps.cargo_release_cache.outputs.cache-hit != 'true'
+      - name: cargo login
+        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      - name: "cargo release publish"
+        run: |-
+          cargo release \
+            publish \
+            --workspace \
+            --all-features \
+            --allow-branch HEAD \
+            --no-confirm \
+            --no-verify \
+            --execute
+  msi:
+    needs:
+      - build-and-upload
+    name: Deploy to winget
+    runs-on: windows-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: Get the release version from the tag
+        shell: bash
+        if: ${{ github.event_name == 'push' }}
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+      - name: Get the release version from the input
+        shell: bash
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: echo "VERSION="${{ inputs.version }}"" >> $GITHUB_ENV
+      - name: rustup
+        uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-wix
+      - run: cargo wix --nocapture
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: target/wix/*.msi
+      - name: publish to gh-releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/wix/*.msi
+      - name: publish to WinGet
+        if: startsWith(github.ref, 'refs/tags/')
+        run: .\winget-publish.ps1 ${env:GITHUB_REF} ${env:GH_PERSONAL_TOKEN}
+        env:
+          # We cannot use GITHUB_TOKEN here because it doesn't have permission to work with winget-pkgs repository fork
+          GH_PERSONAL_TOKEN: ${{ secrets.GH_PERSONAL_TOKEN }}
