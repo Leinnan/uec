@@ -2,18 +2,19 @@
 
 ## [0.2.1]
 
-## Added
+### Added
 
 - `uat` command.
 - `--dry-run` option allowing to display what would `uec` run without running it.
+- `--generate_project` option for `build` and `editor-project` command that will generate project files before building the project.
 
-## Changed
+### Changed
 
 - Improved command descriptions.
 
 ## [0.2.0]
 
-## Added
+### Added
 
 - `build-engine` command.
 - `build-plugin` command.

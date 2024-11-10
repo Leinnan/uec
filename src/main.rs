@@ -26,7 +26,7 @@ pub struct Cli {
     error_only: bool,
     /// Dry run, no command would be run. Instead it will just output what it would run.
     #[clap(long, action)]
-    dry_run: bool
+    dry_run: bool,
 }
 
 #[derive(Subcommand)]
@@ -41,6 +41,9 @@ pub enum Commands {
         /// Optional path to directory that game would be build to.
         /// When no value is provided, it will save to the newly created `CookedBuild` directory created in current directory
         output: Option<PathBuf>,
+        /// Before building the project it will generate it first.
+        #[clap(long, action)]
+        generate_project: bool,
     },
     /// Generate a Unreal project.
     GenerateProjectFiles {
@@ -53,6 +56,9 @@ pub enum Commands {
         /// Optional path to directory containing the `.uproject` file.
         /// When no value is provided it will use current directory
         path: Option<PathBuf>,
+        /// Before building the project it will generate it first.
+        #[clap(long, action)]
+        generate_project: bool,
     },
     /// Cleans all the intermediate files and directories from project.
     CleanProject {
@@ -101,7 +107,14 @@ fn main() {
             }
         }
         Commands::Editor => editor.run_editor(),
-        Commands::Build { path, output } => {
+        Commands::Build {
+            path,
+            output,
+            generate_project,
+        } => {
+            if *generate_project {
+                editor.generate_proj_files(path);
+            }
             let _ = editor.build_project(path, output);
         }
         Commands::BuildEngine { path } => editor.build_engine_from_source(path),
@@ -110,7 +123,15 @@ fn main() {
                 .clean_project(path)
                 .inspect_err(|e| eprintln!("Failed to clean up the project, reason: {:#?}", e));
         }
-        Commands::EditorProject { path } => editor.build_editor_project(path),
+        Commands::EditorProject {
+            path,
+            generate_project,
+        } => {
+            if *generate_project {
+                editor.generate_proj_files(path);
+            }
+            editor.build_editor_project(path)
+        }
         Commands::GenerateProjectFiles { path } => editor.generate_proj_files(path),
         Commands::BuildPlugin { path, output } => editor.build_plugin(path, output),
         Commands::UAT { input, path } => {
