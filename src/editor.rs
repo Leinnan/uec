@@ -84,7 +84,7 @@ impl Editor {
         let cmd = Command::new("cmd")
             .arg("/C")
             .arg(dir.join("Setup.bat"))
-            .run_with_async_logs(&self);
+            .run_with_async_logs(self);
         if !cmd.success() {
             panic!("FAILED TO RUN SETUP");
         }
@@ -92,7 +92,7 @@ impl Editor {
         let cmd = Command::new("cmd")
             .arg("/C")
             .arg(dir.join("GenerateProjectFiles.bat"))
-            .run_with_async_logs(&self);
+            .run_with_async_logs(self);
         if !cmd.success() {
             panic!("FAILED TO GENERATE PROJECT FILES");
         }
@@ -102,7 +102,7 @@ impl Editor {
             .arg(dir.join("UE5.sln"))
             .arg("/p:Configuration=\"Development Editor\"")
             .arg("/p:Platform=\"Win64\"")
-            .run_with_async_logs(&self);
+            .run_with_async_logs(self);
         if !cmd.success() {
             panic!("FAILED TO BUILD ENGINE");
         }
@@ -146,7 +146,7 @@ impl Editor {
             .arg("-WaitMutex")
             .arg("-FromMsBuild");
 
-        if cmd.run_with_async_logs(&self).success() {
+        if cmd.run_with_async_logs(self).success() {
             let path = self
                 .get_editor_exec()
                 .expect("Editor at path does not exists");
@@ -213,7 +213,7 @@ impl Editor {
             .arg(&p)
             .arg(&tmp)
             .arg("-CreateSubfolder");
-        cmd.run_with_async_logs(&self);
+        cmd.run_with_async_logs(self);
     }
 
     pub fn run_uat<I, S>(
@@ -243,7 +243,7 @@ impl Editor {
                 format!("-project={}", project_path.to_str().unwrap()).replace("\\\\?\\", "");
             cmd = cmd.arg(project_arg);
         }
-        let exit_code = cmd.run_with_async_logs(&self);
+        let exit_code = cmd.run_with_async_logs(self);
         Ok(exit_code)
     }
 
@@ -273,7 +273,7 @@ impl Editor {
             .arg("-rocket")
             .arg("-progress");
 
-        cmd.run_with_async_logs(&self);
+        cmd.run_with_async_logs(self);
     }
 
     fn remove_at_path<P>(&self, path: P) -> io::Result<()>
