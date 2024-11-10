@@ -1,7 +1,8 @@
-use colour::{dark_green_ln_bold, e_red_ln, print_ln_bold, yellow_ln_bold};
+use colour::{cyan_ln_bold, dark_green_ln_bold, e_red_ln, print_ln_bold, yellow_ln_bold};
 use std::{
     error::Error,
-    io::{BufRead, BufReader, Write},
+    ffi::OsStr,
+    io::{self, BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
     sync::{Arc, Mutex},
@@ -14,6 +15,8 @@ pub struct Editor {
     pub config: Config,
     pub logs: Option<PathBuf>,
     pub error_only: bool,
+    /// No command would be run. Instead it will just output what it would run.
+    dry_run: bool,
 }
 
 impl Editor {
@@ -27,6 +30,7 @@ impl Editor {
             config,
             logs: cli.save_logs.clone(),
             error_only: cli.error_only,
+            dry_run: cli.dry_run,
         }
     }
 
@@ -45,17 +49,12 @@ impl Editor {
 
     pub fn clean_project(&self, path: &Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         let project_path = find_uproject_file(path);
-        let Some(project_path) = project_path else {
+        let Ok(project_path) = project_path else {
             panic!("PROJECT AT PATH DOES NOT EXIST!");
         };
         let sln_file = project_path.with_extension("sln");
         let parent = project_path.parent().expect("");
-        if sln_file.exists() {
-            if !self.error_only {
-                print_ln_bold!("Removing: {}", sln_file.display());
-            }
-            std::fs::remove_file(sln_file)?;
-        }
+        self.remove_at_path(sln_file)?;
         let dirs_to_remove = [
             "Build",
             "Intermediate",
@@ -65,12 +64,7 @@ impl Editor {
         ];
         for dir in dirs_to_remove {
             let path = parent.join(dir);
-            if path.exists() {
-                if !self.error_only {
-                    print_ln_bold!("Removing: {}", path.display());
-                }
-                std::fs::remove_dir_all(path)?;
-            }
+            self.remove_at_path(path)?;
         }
 
         Ok(())
@@ -90,7 +84,7 @@ impl Editor {
         let cmd = Command::new("cmd")
             .arg("/C")
             .arg(dir.join("Setup.bat"))
-            .run_with_async_logs(&self.logs, self.error_only);
+            .run_with_async_logs(&self);
         if !cmd.success() {
             panic!("FAILED TO RUN SETUP");
         }
@@ -98,7 +92,7 @@ impl Editor {
         let cmd = Command::new("cmd")
             .arg("/C")
             .arg(dir.join("GenerateProjectFiles.bat"))
-            .run_with_async_logs(&self.logs, self.error_only);
+            .run_with_async_logs(&self);
         if !cmd.success() {
             panic!("FAILED TO GENERATE PROJECT FILES");
         }
@@ -108,7 +102,7 @@ impl Editor {
             .arg(dir.join("UE5.sln"))
             .arg("/p:Configuration=\"Development Editor\"")
             .arg("/p:Platform=\"Win64\"")
-            .run_with_async_logs(&self.logs, self.error_only);
+            .run_with_async_logs(&self);
         if !cmd.success() {
             panic!("FAILED TO BUILD ENGINE");
         }
@@ -122,9 +116,10 @@ impl Editor {
             .expect("Editor at path does not exists");
         let _ = std::process::Command::new(path.to_str().unwrap()).spawn();
     }
+
     pub fn build_editor_project(&self, path: &Option<PathBuf>) {
         let project_path = find_uproject_file(path);
-        let Some(project_path) = project_path else {
+        let Ok(project_path) = project_path else {
             panic!("PROJECT AT PATH DOES NOT EXIST!");
         };
         let project_path = project_path
@@ -151,10 +146,7 @@ impl Editor {
             .arg("-WaitMutex")
             .arg("-FromMsBuild");
 
-        if cmd
-            .run_with_async_logs(&self.logs, self.error_only)
-            .success()
-        {
+        if cmd.run_with_async_logs(&self).success() {
             let path = self
                 .get_editor_exec()
                 .expect("Editor at path does not exists");
@@ -166,48 +158,41 @@ impl Editor {
         }
     }
 
-    pub fn build_project(&self, path: &Option<PathBuf>) {
-        let project_path = find_uproject_file(path);
-        let Some(project_path) = project_path else {
-            panic!("PROJECT AT PATH DOES NOT EXIST!");
-        };
-        let archived_dir = Path::new(project_path.parent().unwrap()).join("SuperPackage");
+    pub fn build_project(
+        &self,
+        path: &Option<PathBuf>,
+        output_path: &Option<PathBuf>,
+    ) -> Result<ExitStatus, Box<dyn Error>> {
+        let archived_dir = output_path.clone().unwrap_or_else(|| {
+            let p = find_file_by_extension(path, "uplugin").unwrap();
 
-        let p = format!(
-            "-project={}",
-            project_path.to_str().expect("Failed to get project path.")
-        )
-        .replace("\\\\?\\", "");
+            Path::new(p.parent().unwrap()).join("CookedBuild")
+        });
+
         let arch = format!(
             "-archivedirectory={}",
             archived_dir.to_str().expect("Failed to get project path.")
         )
         .replace("\\\\?\\", "");
-        let build_path = Path::new(&self.config.editor_path).join(consts::UAT_SCRIPT);
+        let args: Vec<&str> = vec![
+            "BuildCookRun",
+            &arch,
+            "-utf8output",
+            "-platform=Win64",
+            "-noP4",
+            "-nodebuginfo",
+            "-cook",
+            "-build",
+            "-stage",
+            "-archive",
+            "-pak",
+        ];
 
-        println!("Building project: {}", &project_path.display());
-
-        let mut bind = Command::new("cmd");
-        let cmd = bind
-            .args(["/C", (build_path.to_str().unwrap())])
-            .arg("BuildCookRun")
-            .arg(&p)
-            .arg("-utf8output")
-            .arg("-platform=Win64")
-            .arg("-noP4")
-            .arg("-nodebuginfo")
-            .arg("-cook")
-            .arg("-build")
-            .arg("-stage")
-            .arg("-archive")
-            .arg("-pak")
-            .arg(&arch);
-
-        cmd.run_with_async_logs(&self.logs, self.error_only);
+        self.run_uat(path, args)
     }
 
     pub fn build_plugin(&self, uplugin_path: &Option<PathBuf>, output_dir: &Option<PathBuf>) {
-        let Some(project_path) = find_file_by_extension(uplugin_path, "uplugin") else {
+        let Ok(project_path) = find_file_by_extension(uplugin_path, "uplugin") else {
             panic!("Plugin at given path does not exist!");
         };
         let output = output_dir
@@ -228,12 +213,43 @@ impl Editor {
             .arg(&p)
             .arg(&tmp)
             .arg("-CreateSubfolder");
-        cmd.run_with_async_logs(&self.logs, self.error_only);
+        cmd.run_with_async_logs(&self);
+    }
+
+    pub fn run_uat<I, S>(
+        &self,
+        path: &Option<PathBuf>,
+        args: I,
+    ) -> Result<ExitStatus, Box<dyn Error>>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let build_path = Path::new(&self.config.editor_path).join(consts::UAT_SCRIPT);
+        let mut bind = Command::new("cmd");
+        let mut args = args.into_iter();
+        let pass_project_path = args.any(|s| {
+            s.as_ref()
+                .to_str()
+                .is_some_and(|v| v.starts_with("-project="))
+        });
+        let mut cmd = bind.args(["/C", (build_path.to_str().unwrap())]).args(args);
+
+        if pass_project_path {
+            let Ok(project_path) = find_uproject_file(path) else {
+                return Err("PROJECT AT GIVEN PATH DOES NOT EXIST".into());
+            };
+            let project_arg =
+                format!("-project={}", project_path.to_str().unwrap()).replace("\\\\?\\", "");
+            cmd = cmd.arg(project_arg);
+        }
+        let exit_code = cmd.run_with_async_logs(&self);
+        Ok(exit_code)
     }
 
     pub fn generate_proj_files(&self, path: &Option<PathBuf>) {
         let project_path = find_uproject_file(path);
-        let Some(project_path) = project_path else {
+        let Ok(project_path) = project_path else {
             panic!("PROJECT AT PATH DOES NOT EXIST!");
         };
 
@@ -257,47 +273,77 @@ impl Editor {
             .arg("-rocket")
             .arg("-progress");
 
-        cmd.run_with_async_logs(&self.logs, self.error_only);
+        cmd.run_with_async_logs(&self);
+    }
+
+    fn remove_at_path<P>(&self, path: P) -> io::Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let path = path.as_ref();
+        if !path.exists() {
+            return Ok(());
+        }
+        if self.dry_run {
+            cyan_ln_bold!("[DRY_RUN] Removing: {}", path.display());
+            return Ok(());
+        }
+        if !self.error_only {
+            print_ln_bold!("Removing: {}", path.display());
+        }
+        if path.is_dir() {
+            std::fs::remove_dir_all(path)
+        } else {
+            std::fs::remove_file(path)
+        }
     }
 }
 
-fn find_uproject_file(dir: &Option<PathBuf>) -> Option<PathBuf> {
+fn find_uproject_file(dir: &Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     find_file_by_extension(dir, "uproject")
 }
 
-fn find_file_by_extension(dir: &Option<PathBuf>, extension: &str) -> Option<PathBuf> {
-    let path = dir
-        .clone()
-        .unwrap_or(std::env::current_dir().expect("Failed to get current directory."));
+fn find_file_by_extension(
+    dir: &Option<PathBuf>,
+    extension: &str,
+) -> Result<PathBuf, Box<dyn Error>> {
+    let path = dir.clone().unwrap_or(std::env::current_dir()?);
     // Read the directory contents
-    let entries = std::fs::read_dir(path).expect("Failed to read directory");
+    let entries = std::fs::read_dir(path)?;
 
     // Iterate over the directory entries
     for entry in entries {
-        let entry = entry.expect("Failed to get directory entry");
+        let Ok(entry) = entry else {
+            continue;
+        };
         let path = entry.path();
 
         // Check if the entry is a file with .uproject extension
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 if ext == extension {
-                    let path = std::fs::canonicalize(path).unwrap();
-                    return Some(path);
+                    let path = std::fs::canonicalize(path)?;
+                    return Ok(path);
                 }
             }
         }
     }
-    None
+    Err(Box::new(io::Error::new(
+        io::ErrorKind::NotFound,
+        "Could not find file with extension in this dir",
+    )))
 }
 
 trait CmdHelper {
-    fn run_with_async_logs(&mut self, logs_path: &Option<PathBuf>, error_only: bool) -> ExitStatus;
+    fn run_with_async_logs(&mut self, editor: &Editor) -> ExitStatus;
     fn run_in_bg(&mut self);
 }
 impl CmdHelper for Command {
-    fn run_with_async_logs(&mut self, logs_path: &Option<PathBuf>, error_only: bool) -> ExitStatus {
-        println!("Command to be run: {:?}", self);
-
+    fn run_with_async_logs(&mut self, editor: &Editor) -> ExitStatus {
+        if editor.dry_run {
+            cyan_ln_bold!("[DRY_RUN] {:?}", self);
+            return ExitStatus::default();
+        }
         let mut child = self
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -316,6 +362,7 @@ impl CmdHelper for Command {
 
         // Spawn a thread to handle stdout
         let stdout_log = Arc::clone(&shared_log);
+        let error_only = editor.error_only;
 
         let stdout_handle = std::thread::spawn(move || {
             for line in stdout_reader.lines() {
@@ -370,7 +417,7 @@ impl CmdHelper for Command {
         // Wait for the threads to finish
         stdout_handle.join().expect("Failed to join stdout thread");
         stderr_handle.join().expect("Failed to join stderr thread");
-        if let Some(path) = logs_path {
+        if let Some(path) = &editor.logs {
             let mut file = std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)

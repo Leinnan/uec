@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use colour::cyan_ln_bold;
 use editor::Editor;
 
 pub mod config;
@@ -23,6 +24,9 @@ pub struct Cli {
     /// Log only errors
     #[clap(long, action)]
     error_only: bool,
+    /// Dry run, no command would be run. Instead it will just output what it would run.
+    #[clap(long, action)]
+    dry_run: bool
 }
 
 #[derive(Subcommand)]
@@ -30,13 +34,32 @@ pub enum Commands {
     /// Runs the Unreal editor without an Unreal project.
     Editor,
     /// Builds a Unreal project.
-    Build { path: Option<PathBuf> },
+    Build {
+        /// Optional path to directory containing the `.uproject` file.
+        /// When no value is provided it will use current directory
+        path: Option<PathBuf>,
+        /// Optional path to directory that game would be build to.
+        /// When no value is provided, it will save to the newly created `CookedBuild` directory created in current directory
+        output: Option<PathBuf>,
+    },
     /// Generate a Unreal project.
-    GenerateProjectFiles { path: Option<PathBuf> },
+    GenerateProjectFiles {
+        /// Optional path to directory containing the `.uproject` file.
+        /// When no value is provided it will use current directory
+        path: Option<PathBuf>,
+    },
     /// Builds and run a Unreal editor project.
-    EditorProject { path: Option<PathBuf> },
+    EditorProject {
+        /// Optional path to directory containing the `.uproject` file.
+        /// When no value is provided it will use current directory
+        path: Option<PathBuf>,
+    },
     /// Cleans all the intermediate files and directories from project.
-    CleanProject { path: Option<PathBuf> },
+    CleanProject {
+        /// Optional path to directory containing the `.uproject` file.
+        /// When no value is provided it will use current directory
+        path: Option<PathBuf>,
+    },
     /// Sets the default Unreal Engine Path.
     SetEditor { name: PathBuf },
     /// Prints the current command configuration.
@@ -44,10 +67,18 @@ pub enum Commands {
     /// Builds a Unreal plugin.
     BuildPlugin {
         path: Option<PathBuf>,
-        output_dir: Option<PathBuf>,
+        output: Option<PathBuf>,
     },
     /// Build Unreal Engine from source.
     BuildEngine { path: Option<PathBuf> },
+    /// Run Unreal Automation Tool Command.
+    UAT {
+        /// Input value for the UAT, example: "BuildCookRun -help"
+        input: String,
+        /// Optional path to directory containing the `.uproject` file.
+        /// When no value is provided it will use current directory
+        path: Option<PathBuf>,
+    },
 }
 
 fn main() {
@@ -62,11 +93,17 @@ fn main() {
             name.to_str()
                 .unwrap()
                 .clone_into(&mut editor.config.editor_path);
-            editor.config.save();
-            println!("Updated the editor path to new one: {name:?}");
+            if !cli.dry_run {
+                editor.config.save();
+                println!("Updated the editor path to new one: {name:?}");
+            } else {
+                cyan_ln_bold!("[DRY_RUN] Updated the editor path to new one: {name:?}");
+            }
         }
         Commands::Editor => editor.run_editor(),
-        Commands::Build { path } => editor.build_project(path),
+        Commands::Build { path, output } => {
+            let _ = editor.build_project(path, output);
+        }
         Commands::BuildEngine { path } => editor.build_engine_from_source(path),
         Commands::CleanProject { path } => {
             let _ = editor
@@ -75,7 +112,11 @@ fn main() {
         }
         Commands::EditorProject { path } => editor.build_editor_project(path),
         Commands::GenerateProjectFiles { path } => editor.generate_proj_files(path),
-        Commands::BuildPlugin { path, output_dir } => editor.build_plugin(path, output_dir),
+        Commands::BuildPlugin { path, output } => editor.build_plugin(path, output),
+        Commands::UAT { input, path } => {
+            let args: Vec<&str> = input.split(' ').collect();
+            let _ = editor.run_uat(path, args);
+        }
         Commands::PrintConfig => println!("{:#?}", &editor.config),
     }
 }

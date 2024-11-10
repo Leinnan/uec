@@ -77,9 +77,12 @@ jobs:
 
       - name: Extract changelog content
         id: extract_changelog
+        shell: bash
         run: |
           version="${{ env.VERSION }}"
-          awk "/^## \\[$version\\]/ {flag=1; next} /^## \\[/ && flag {flag=0} flag" CHANGELOG.md > changelog_output.txt
+          git tag -l --format='%(contents:subject)' ${{ env.VERSION }} > changelog_output.txt
+          echo "" >> changelog_output.txt
+          awk "/^## \\[$version\\]/ {flag=1; next} /^## \\[/ && flag {flag=0} flag" CHANGELOG.md >> changelog_output.txt
 
       - name: Display extracted content
         run: cat changelog_output.txt

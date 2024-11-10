@@ -26,6 +26,7 @@ Commands:
   print-config            Prints the current command configuration
   build-plugin            Builds a Unreal plugin
   build-engine            Build Unreal Engine from source
+  uat                     Run Unreal Automation Tool Command
   help                    Print this message or the help of the given subcommand(s)
 
 Options:
@@ -37,6 +38,9 @@ Options:
 
       --error-only
           Log only errors
+
+      --dry-run
+          Dry run, no command would be run. Instead it will just output what it would run
 
   -h, --help
           Print help (see a summary with '-h')

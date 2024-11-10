@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1]
+
+## Added
+
+- `uat` command.
+- `--dry-run` option allowing to display what would `uec` run without running it.
+
+## Changed
+
+- Improved command descriptions.
+
 ## [0.2.0]
 
 ## Added
