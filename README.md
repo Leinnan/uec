@@ -51,10 +51,18 @@ Options:
 
 ## Install
 
-It can be installed using Rust Cargo:
+### WinGet (Windows Package Manager)
+
+```sh
+winget install MevLyshkin.uec
+```
+
+### Manually
+
+Go to [Releases](https://github.com/Leinnan/uec/releases) and download version for the platform of choice.
+
+### Rust Cargo
 
 ```sh
 cargo install uec
 ```
-
-It is also possible to go to [Releases](https://github.com/Leinnan/uec/releases) and download desired version.
