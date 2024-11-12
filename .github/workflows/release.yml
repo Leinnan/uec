@@ -48,8 +48,8 @@ jobs:
         id: setup
         shell: bash
         run: |
-          echo version::$(if [ -n "${{ steps.version_dispatch.outputs.version }}" ]; then echo "${{ steps.version_dispatch.outputs.version }}"; else echo "${{ steps.version_push.outputs.version }}"; fi) >> $GITHUB_OUTPUT
-          echo dry_run::$(if [ -n "${{ steps.version_dispatch.outputs.dry_run }}" ]; then echo "${{ steps.version_dispatch.outputs.dry_run }}"; else echo "false"; fi) >> $GITHUB_OUTPUT
+          echo version=$(if [ -n "${{ steps.version_dispatch.outputs.version }}" ]; then echo "${{ steps.version_dispatch.outputs.version }}"; else echo "${{ steps.version_push.outputs.version }}"; fi) >> $GITHUB_OUTPUT
+          echo dry_run=$(if [ -n "${{ steps.version_dispatch.outputs.dry_run }}" ]; then echo "${{ steps.version_dispatch.outputs.dry_run }}"; else echo "false"; fi) >> $GITHUB_OUTPUT
       - name: Display settings
         shell: bash
         run: echo "Version ${{ steps.setup.outputs.version }}, Dry run- ${{ steps.setup.outputs.dry_run }}"
