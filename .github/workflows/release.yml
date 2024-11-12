@@ -36,7 +36,7 @@ jobs:
         shell: bash
         if: ${{ github.event_name == 'push' }}
         run: |
-          echo ::set-output name=id::${GITHUB_REF#refs/tags/}
+          echo ::set-output name=version::${GITHUB_REF#refs/tags/}
       - name: Get the release version from the input
         id: version_dispatch
         shell: bash
