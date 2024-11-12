@@ -53,4 +53,8 @@ jobs:
       - name: Display settings
         shell: bash
         run: echo "Version ${{ steps.setup.outputs.version }}, Dry run- ${{ steps.setup.outputs.dry_run }}"
-  
+      - name: Fail if empty
+        shell: bash
+        run: |
+          if [ -n "${{ steps.setup.outputs.version }}" ]; then exit 1; fi;
+          if [ -n "${{ steps.setup.outputs.dry_run }}" ]; then exit 1; fi;
