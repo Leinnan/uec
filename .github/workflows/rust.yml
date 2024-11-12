@@ -38,16 +38,18 @@ jobs:
           with:
             toolchain: stable
             components: clippy,rustfmt
-        - name: check
+        - name: Format and Clippy
           run: |
             cargo fmt --all -- --check
             cargo clippy -- -D warnings
+        - uses: taiki-e/cache-cargo-install-action@v2
+          if: ${{ runner.os == 'Windows' }}
+          with:
+            tool: cargo-wix
         - name: Windows check packaging
           if: ${{ runner.os == 'Windows' }}
           shell: powershell
           run: |
-            cargo install cargo-wix
             cargo wix --nocapture
-            ls target/wix
             Get-ChildItem  .\target\wix
 
