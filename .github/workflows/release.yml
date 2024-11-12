@@ -7,6 +7,14 @@ on:
         description: Pass the version
         required: true
         type: string
+      dry_run:
+        description: Perform test without releasing
+        type: choice
+        required: true
+        default: "true"
+        options:
+          - "true"
+          - "false"  
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
@@ -15,144 +23,34 @@ permissions:
   contents: write
 
 jobs:
-  build-and-upload:
-    name: Build and upload
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - build: linux
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-          - build: windows
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - build: macos
-            os: macos-latest
-            target: x86_64-apple-darwin
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Get the release version from the tag
-        shell: bash
-        if: ${{ github.event_name == 'push' }}
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-      - name: Get the release version from the input
-        shell: bash
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: echo "VERSION="${{ inputs.version }}"" >> $GITHUB_ENV
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --verbose --release --target ${{ matrix.target }}
-
-      - name: Build archive
-        shell: bash
-        run: |
-          binary_name="uec"
-
-          dirname="$binary_name-${{ env.VERSION }}-${{ matrix.target }}"
-          mkdir "$dirname"
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv "target/${{ matrix.target }}/release/$binary_name.exe" "$dirname"
-          else
-            mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
-          fi
-
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            7z a "$dirname.zip" "$dirname"
-            echo "ASSET=$dirname.zip" >> $GITHUB_ENV
-          else
-            tar -czf "$dirname.tar.gz" "$dirname"
-            echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
-          fi
-
-      - name: Extract changelog content
-        id: extract_changelog
-        shell: bash
-        run: |
-          version="${{ env.VERSION }}"
-          git tag -l --format='%(contents:subject)' ${{ env.VERSION }} > changelog_output.txt
-          echo "" >> changelog_output.txt
-          awk "/^## \\[$version\\]/ {flag=1; next} /^## \\[/ && flag {flag=0} flag" CHANGELOG.md >> changelog_output.txt
-
-      - name: Display extracted content
-        run: cat changelog_output.txt
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          body_path: changelog_output.txt
-          files: |
-            ${{ env.ASSET }}
-  deploy-to-crates-io:
-    needs:
-      - build-and-upload
-    name: Deploy to crates.io
+  setup:
+    name: Prepare job settings
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.setup.outputs.version }}
+      dry_run: ${{ steps.setup.outputs.dry_run }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: cargo-release Cache
-        id: cargo_release_cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-release
-          key: ${{ runner.os }}-cargo-release
-      - run: cargo install cargo-release
-        if: steps.cargo_release_cache.outputs.cache-hit != 'true'
-      - name: cargo login
-        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
-      - name: "cargo release publish"
-        run: |-
-          cargo release \
-            publish \
-            --workspace \
-            --all-features \
-            --allow-branch HEAD \
-            --no-confirm \
-            --no-verify \
-            --execute
-  msi:
-    needs:
-      - build-and-upload
-    name: Deploy to winget
-    runs-on: windows-latest
-    steps:
-      - name: checkout
-        uses: actions/checkout@v4
+
       - name: Get the release version from the tag
+        id: version_push
         shell: bash
         if: ${{ github.event_name == 'push' }}
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: |
+          echo ::set-output name=id::${GITHUB_REF#refs/tags/}
       - name: Get the release version from the input
+        id: version_dispatch
         shell: bash
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: echo "VERSION="${{ inputs.version }}"" >> $GITHUB_ENV
-      - name: rustup
-        uses: dtolnay/rust-toolchain@stable
-      - run: cargo install cargo-wix
-      - run: cargo wix --nocapture
-      - name: upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: package
-          path: target/wix/*.msi
-      - name: publish to gh-releases
-        uses: softprops/action-gh-release@v2
-        with:
-          files: target/wix/*.msi
-      - name: publish to WinGet
-        if: startsWith(github.ref, 'refs/tags/')
-        run: .\winget-publish.ps1 ${env:GITHUB_REF} ${env:GH_PERSONAL_TOKEN}
-        env:
-          # We cannot use GITHUB_TOKEN here because it doesn't have permission to work with winget-pkgs repository fork
-          GH_PERSONAL_TOKEN: ${{ secrets.GH_PERSONAL_TOKEN }}
+        run: |
+          echo ::set-output name=id::${{ inputs.version }}
+          echo ::set-output name=dry_run::${{ inputs.dry_run }}
+      - name: Setup
+        id: setup
+        shell: bash
+        run: |
+          echo ::set-output name=version::$(if [ -n "${{ steps.version_dispatch.outputs.version }}" ]; then echo "${{ steps.version_dispatch.outputs.version }}"; else echo "${{ steps.version_push.outputs.version }}"; fi)
+          echo ::set-output name=dry_run::$(if [ -n "${{ steps.version_dispatch.outputs.dry_run }}" ]; then echo "${{ steps.version_dispatch.outputs.dry_run }}"; else echo "false"; fi)
+      - name: Display settings
+        shell: bash
+        run: echo "Version ${{ steps.setup.outputs.version }}, Dry run- ${{ steps.setup.outputs.dry_run }}"
+  
