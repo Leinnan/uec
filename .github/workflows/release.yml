@@ -36,20 +36,20 @@ jobs:
         shell: bash
         if: ${{ github.event_name == 'push' }}
         run: |
-          echo ::set-output name=version::${GITHUB_REF#refs/tags/}
+          echo version=${GITHUB_REF#refs/tags/} >> $GITHUB_OUTPUT
       - name: Get the release version from the input
         id: version_dispatch
         shell: bash
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
-          echo ::set-output name=version::$(echo ${{ inputs.version }} | xargs)
-          echo ::set-output name=dry_run::${{ inputs.dry_run }}
+          echo version=$(echo ${{ inputs.version }} | xargs) >> $GITHUB_OUTPUT
+          echo dry_run=$(echo ${{ inputs.dry_run }} | xargs) >> $GITHUB_OUTPUT
       - name: Setup
         id: setup
         shell: bash
         run: |
-          echo ::set-output name=version::$(if [ -n "${{ steps.version_dispatch.outputs.version }}" ]; then echo "${{ steps.version_dispatch.outputs.version }}"; else echo "${{ steps.version_push.outputs.version }}"; fi)
-          echo ::set-output name=dry_run::$(if [ -n "${{ steps.version_dispatch.outputs.dry_run }}" ]; then echo "${{ steps.version_dispatch.outputs.dry_run }}"; else echo "false"; fi)
+          echo version::$(if [ -n "${{ steps.version_dispatch.outputs.version }}" ]; then echo "${{ steps.version_dispatch.outputs.version }}"; else echo "${{ steps.version_push.outputs.version }}"; fi) >> $GITHUB_OUTPUT
+          echo dry_run::$(if [ -n "${{ steps.version_dispatch.outputs.dry_run }}" ]; then echo "${{ steps.version_dispatch.outputs.dry_run }}"; else echo "false"; fi) >> $GITHUB_OUTPUT
       - name: Display settings
         shell: bash
         run: echo "Version ${{ steps.setup.outputs.version }}, Dry run- ${{ steps.setup.outputs.dry_run }}"
@@ -107,10 +107,10 @@ jobs:
 
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             7z a "$dirname.zip" "$dirname"
-            echo ::set-output name=asset::$dirname.zip
+            echo "asset=$dirname.zip" >> $GITHUB_OUTPUT
           else
             tar -czf "$dirname.tar.gz" "$dirname"
-            echo ::set-output name=asset::$dirname.tar.gz
+            echo "asset=$dirname.tar.gz" >> $GITHUB_OUTPUT
           fi
 
       - name: Extract changelog content
@@ -118,8 +118,7 @@ jobs:
         shell: bash
         run: |
           version="${{ needs.setup.outputs.version }}"
-          git tag -l --format='%(contents:subject)' ${{ needs.setup.outputs.version }} > changelog_output.txt
-          echo "" >> changelog_output.txt
+          git tag -l --format='%(contents)' ${{ needs.setup.outputs.version }} > changelog_output.txt
           awk "/^## \\[$version\\]/ {flag=1; next} /^## \\[/ && flag {flag=0} flag" CHANGELOG.md >> changelog_output.txt
 
       - name: Display extracted content
