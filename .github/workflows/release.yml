@@ -59,3 +59,135 @@ jobs:
           if [ -z "${{ steps.setup.outputs.version }}" ]; then exit 1; fi;
           if [ -z "${{ steps.setup.outputs.dry_run }}" ]; then exit 1; fi;
           if [[ "${{ steps.setup.outputs.version }}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+).*?$ ]]; then echo "Valid version"; else echo "INVALID VERSION FORMAT!";exit 1; fi;
+  build-and-upload:
+    name: Build and upload
+    needs:
+      - setup
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --verbose --release --target ${{ matrix.target }}
+
+      - name: Build archive
+        id: archive
+        shell: bash
+        run: |
+          binary_name="uec"
+
+          dirname="$binary_name-${{ needs.setup.outputs.version }}-${{ matrix.target }}"
+          mkdir "$dirname"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            mv "target/${{ matrix.target }}/release/$binary_name.exe" "$dirname"
+          else
+            mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
+          fi
+
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a "$dirname.zip" "$dirname"
+            echo ::set-output name=asset::$dirname.zip
+          else
+            tar -czf "$dirname.tar.gz" "$dirname"
+            echo ::set-output name=asset::$dirname.tar.gz
+          fi
+
+      - name: Extract changelog content
+        id: extract_changelog
+        shell: bash
+        run: |
+          version="${{ needs.setup.outputs.version }}"
+          git tag -l --format='%(contents:subject)' ${{ needs.setup.outputs.version }} > changelog_output.txt
+          echo "" >> changelog_output.txt
+          awk "/^## \\[$version\\]/ {flag=1; next} /^## \\[/ && flag {flag=0} flag" CHANGELOG.md >> changelog_output.txt
+
+      - name: Display extracted content
+        run: cat changelog_output.txt
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: changelog_output.txt
+          files: |
+            ${{ steps.archive.outputs.ASSET }}
+  deploy-to-crates-io:
+    needs:
+      - setup
+      - build-and-upload
+    name: Deploy to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo-release Cache
+        id: cargo_release_cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-release
+          key: ${{ runner.os }}-cargo-release
+      - run: cargo install cargo-release
+        if: steps.cargo_release_cache.outputs.cache-hit != 'true'
+      - name: cargo login
+        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      - name: "cargo release publish"
+        if: ${{ needs.setup.outputs.dry_run == 'false'}}
+        run: |-
+          cargo release \
+            publish \
+            --workspace \
+            --all-features \
+            --allow-branch HEAD \
+            --no-confirm \
+            --no-verify \
+            --execute
+  msi:
+    needs:
+      - setup
+      - build-and-upload
+    name: Deploy to winget
+    runs-on: windows-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: rustup
+        uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-wix
+      - run: cargo wix --nocapture
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: target/wix/*.msi
+      - name: publish to gh-releases
+        if: ${{ needs.setup.outputs.dry_run == 'false'}}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/wix/*.msi
+      - name: publish to WinGet
+        if: ${{ needs.setup.outputs.dry_run == 'false'}}
+        run: .\winget-publish.ps1 ${{ needs.setup.outputs.version }} ${env:GH_PERSONAL_TOKEN}
+        env:
+          # We cannot use GITHUB_TOKEN here because it doesn't have permission to work with winget-pkgs repository fork
+          GH_PERSONAL_TOKEN: ${{ secrets.GH_PERSONAL_TOKEN }}
+      
