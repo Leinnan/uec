@@ -42,7 +42,7 @@ jobs:
         shell: bash
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
-          echo ::set-output name=version::${{ inputs.version }}
+          echo ::set-output name=version::$(echo ${{ inputs.version }} | xargs)
           echo ::set-output name=dry_run::${{ inputs.dry_run }}
       - name: Setup
         id: setup
