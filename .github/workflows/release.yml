@@ -125,6 +125,7 @@ jobs:
       - name: Display extracted content
         run: cat changelog_output.txt
       - name: Release
+        if: ${{ needs.setup.outputs.dry_run == 'false'}}
         uses: softprops/action-gh-release@v2
         with:
           body_path: changelog_output.txt
@@ -140,15 +141,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: cargo-release Cache
-        id: cargo_release_cache
-        uses: actions/cache@v4
+      - uses: taiki-e/cache-cargo-install-action@v2
         with:
-          path: ~/.cargo/bin/cargo-release
-          key: ${{ runner.os }}-cargo-release
-      - run: cargo install cargo-release
-        if: steps.cargo_release_cache.outputs.cache-hit != 'true'
+          tool: cargo-release
       - name: cargo login
+        if: ${{ needs.setup.outputs.dry_run == 'false'}}
         run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
       - name: "cargo release publish"
         if: ${{ needs.setup.outputs.dry_run == 'false'}}
