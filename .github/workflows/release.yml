@@ -144,6 +144,9 @@ jobs:
       - uses: taiki-e/cache-cargo-install-action@v2
         with:
           tool: cargo-release
+      - name: cargo publish dry run
+        if: ${{ needs.setup.outputs.dry_run == 'false'}}
+        run: cargo publish --dry-run
       - name: cargo login
         if: ${{ needs.setup.outputs.dry_run == 'false'}}
         run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
@@ -169,9 +172,12 @@ jobs:
         uses: actions/checkout@v4
       - name: rustup
         uses: dtolnay/rust-toolchain@stable
-      - run: cargo install cargo-wix
+      - uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-wix
       - run: cargo wix --nocapture
       - name: upload artifact
+        if: ${{ needs.setup.outputs.dry_run == 'false'}}
         uses: actions/upload-artifact@v4
         with:
           name: package
@@ -187,4 +193,3 @@ jobs:
         env:
           # We cannot use GITHUB_TOKEN here because it doesn't have permission to work with winget-pkgs repository fork
           GH_PERSONAL_TOKEN: ${{ secrets.GH_PERSONAL_TOKEN }}
-      
