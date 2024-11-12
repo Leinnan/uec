@@ -164,7 +164,7 @@ impl Editor {
         output_path: &Option<PathBuf>,
     ) -> Result<ExitStatus, Box<dyn Error>> {
         let archived_dir = output_path.clone().unwrap_or_else(|| {
-            let p = find_file_by_extension(path, "uplugin").unwrap();
+            let p = find_uproject_file(path).unwrap();
 
             Path::new(p.parent().unwrap()).join("CookedBuild")
         });
