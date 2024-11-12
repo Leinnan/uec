@@ -53,8 +53,10 @@ jobs:
       - name: Display settings
         shell: bash
         run: echo "Version ${{ steps.setup.outputs.version }}, Dry run- ${{ steps.setup.outputs.dry_run }}"
-      - name: Fail if empty
+      - name: Validate input
         shell: bash
         run: |
           if [ -n "${{ steps.setup.outputs.version }}" ]; then exit 1; fi;
           if [ -n "${{ steps.setup.outputs.dry_run }}" ]; then exit 1; fi;
+          rx='^([0-9]+\.){0,2}(\*|[0-9]+)$'
+          if [[ "${{ steps.setup.outputs.version }}" =~ $rx ]]; then echo "Valid version"; else echo "INVALID VERSION FORMAT!";exit 1; fi;
