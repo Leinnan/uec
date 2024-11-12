@@ -168,6 +168,11 @@ impl Editor {
 
             Path::new(p.parent().unwrap()).join("CookedBuild")
         });
+        let Ok(project_path) = find_uproject_file(path) else {
+            return Err("PROJECT AT GIVEN PATH DOES NOT EXIST".into());
+        };
+        let project_arg =
+            format!("-project={}", project_path.to_str().unwrap()).replace("\\\\?\\", "");
 
         let arch = format!(
             "-archivedirectory={}",
@@ -177,6 +182,7 @@ impl Editor {
         let args: Vec<&str> = vec![
             "BuildCookRun",
             &arch,
+            &project_arg,
             "-utf8output",
             "-platform=Win64",
             "-noP4",
@@ -187,7 +193,6 @@ impl Editor {
             "-archive",
             "-pak",
         ];
-
         self.run_uat(path, args)
     }
 
@@ -222,18 +227,18 @@ impl Editor {
         args: I,
     ) -> Result<ExitStatus, Box<dyn Error>>
     where
-        I: IntoIterator<Item = S>,
+        I: IntoIterator<Item = S> + Clone,
         S: AsRef<OsStr>,
     {
         let build_path = Path::new(&self.config.editor_path).join(consts::UAT_SCRIPT);
         let mut bind = Command::new("cmd");
-        let mut args = args.into_iter();
-        let pass_project_path = args.any(|s| {
+        let mut args2 = args.clone().into_iter();
+        let pass_project_path = !args2.any(|s| {
             s.as_ref()
                 .to_str()
                 .is_some_and(|v| v.starts_with("-project="))
         });
-        let mut cmd = bind.args(["/C", (build_path.to_str().unwrap())]).args(args);
+        let mut cmd: &mut Command = bind.args(["/C", (build_path.to_str().unwrap())]).args(args);
 
         if pass_project_path {
             let Ok(project_path) = find_uproject_file(path) else {

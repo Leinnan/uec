@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - Not released
+
+### Fixed
+
+- `build` command could not resolve project directory
+
 ## [0.3.0]
 
 ### Added
