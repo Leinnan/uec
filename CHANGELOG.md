@@ -2,6 +2,10 @@
 
 ## [0.3.1] - Not released
 
+### Added
+
+- `generate-completions` command with support for various shells.
+
 ### Fixed
 
 - `build` command could not resolve project directory

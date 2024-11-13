@@ -1,8 +1,14 @@
-use std::path::PathBuf;
+use std::{io, path::PathBuf};
 
-use clap::{Parser, Subcommand};
-use colour::cyan_ln_bold;
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap_complete::{
+    aot::{Bash, Elvish, Fish, PowerShell, Zsh},
+    generate,
+};
+use clap_complete_nushell::Nushell;
+use colour::{cyan_ln_bold, green_ln_bold};
 use editor::Editor;
+use serde::{Deserialize, Serialize};
 
 pub mod config;
 pub mod consts;
@@ -85,6 +91,29 @@ pub enum Commands {
         /// When no value is provided it will use current directory
         path: Option<PathBuf>,
     },
+    GenerateCompletions {
+        shell: Shell,
+        /// default- print
+        #[clap(action)]
+        action: Option<ActionToDo>,
+    },
+}
+
+#[derive(Clone, Debug, Default, Copy, Serialize, Deserialize, ValueEnum)]
+pub enum ActionToDo {
+    #[default]
+    Print,
+    CopyToClipboard,
+}
+
+#[derive(Clone, Debug, Copy, Serialize, Deserialize, ValueEnum)]
+pub enum Shell {
+    Bash,
+    Elvish,
+    Fish,
+    Nushell,
+    Powershell,
+    Zsh,
 }
 
 fn main() {
@@ -92,6 +121,32 @@ fn main() {
     let mut editor = Editor::create(&cli);
 
     match &cli.command {
+        Commands::GenerateCompletions { shell, action } => {
+            let mut cmd = Cli::command();
+            let mut b = [0u8; 10000];
+            let mut buffer = io::BufWriter::new(b.as_mut());
+            match shell {
+                Shell::Bash => generate(Bash, &mut cmd, "uec", &mut buffer),
+                Shell::Nushell => generate(Nushell, &mut cmd, "uec", &mut buffer),
+                Shell::Powershell => generate(PowerShell, &mut cmd, "uec", &mut buffer),
+                Shell::Elvish => generate(Elvish, &mut cmd, "uec", &mut buffer),
+                Shell::Fish => generate(Fish, &mut cmd, "uec", &mut buffer),
+                Shell::Zsh => generate(Zsh, &mut cmd, "uec", &mut buffer),
+            }
+
+            let bytes: Vec<u8> = buffer.buffer().to_vec();
+            let string = String::from_utf8(bytes).unwrap();
+            match action.unwrap_or_default() {
+                ActionToDo::Print => println!("{}", string),
+                ActionToDo::CopyToClipboard => {
+                    let mut clipboard = arboard::Clipboard::new().expect("Failed to get clipboard");
+                    clipboard
+                        .set_text(&string)
+                        .expect("Failed to update clipboard");
+                    green_ln_bold!("Completions generated and copied to clipboard!");
+                }
+            }
+        }
         Commands::SetEditor { name } => {
             if Editor::build_editor_exec(name.to_str().unwrap()).is_none() {
                 panic!("EDITOR AT PATH DOES NOT EXISTS! {}", name.display());
